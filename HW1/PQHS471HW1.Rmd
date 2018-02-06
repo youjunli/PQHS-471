@@ -1,0 +1,244 @@
+---
+title: "PQHS 471 HW1"
+author: "Youjun Li"
+date: "Feb 06, 2018"
+output:
+  html_document: default
+  pdf_document:
+    number_sections: yes
+geometry: margin=1.75in
+fontsize: 11pt
+documentclass: article
+---
+```{r,echo=F,warning=F}
+library(knitr)
+options(width=50)
+opts_chunk$set(tidy.opts=list(width.cutoff=50),tidy=T,message=F, warning=F)
+
+```
+
+## ISLR Chapter 2 {.tabset}
+### 1
+a. Large n small p indicate relative small variance, hence flexible learning should perform better.
+b. The opposite of part a, flexible learning tends to overfit. 
+c. Flexible learning works better to capture non-linear relationship.
+d. Similar to part b, flexible learning tends to overfit.
+
+### 3
+a.
+
+![](sketch.jpg)
+b. More flexible model would loosen the assumptions and  fit the training data better and thus reduce training error and bias. But the variance would increase as the model is fitted to match the current training data, meaning a change of training data will result a rapid change of the estimate. Testing error reflects both variance and bias, thus would have a "U" shaped curve. Bayes error is also called irreducible error, which is the same over flexibility.
+
+### 8
+a.
+```{r}
+college=read.csv('College.csv', header = T)
+
+```
+
+b.
+```{r}
+rownames(college)=college[,1]
+college=college[,-1]
+#fix(college)
+```
+c.
+```{r}
+# (i)
+summary(college)
+
+# (ii)
+pairs(college[,1:10])
+
+# (iii)
+with(college, boxplot(Outstate~Private))
+
+# (iv)
+Elite=rep("No",nrow(college )) 
+Elite[college$Top10perc >50]=" Yes" 
+Elite=as.factor(Elite) 
+college=data.frame(college ,Elite)
+summary(college)
+#there are 78 Elite universities
+with(college, boxplot(Outstate~Elite))
+
+# (v)
+par(mfrow=c(2,2))
+with(college, hist(Apps, breaks=100))
+with(college, hist(Personal, breaks=50))
+with(college, hist(PhD, breaks=25))
+with(college, hist(S.F.Ratio, breaks=15))
+
+# (vi)
+#The dataset contains only numeric variables excpet the binary variable we just created. Some variables are highly correlated, such as Enroll and F.Undergrad. The distributions of admission related variables are concentrated at lower qunatiles, indicating most colleges only admit a reasonable number of students. The distributions of faculty degree variables are concentrated at higher quantiles, indicating good education background of faculties for most univerisities. Moreover, better schools tend to cost more. 
+```
+
+
+## ISLR Chapter 3 {.tabset}
+### 9
+a.
+```{r}
+library(ISLR)
+data(Auto)
+df=Auto
+pairs(df)
+```
+
+b.
+```{r}
+cor(df[,-9])
+```
+
+c.
+```{r}
+fit=lm(mpg~.-name, data=df)
+summary(fit)
+```
+
+There is relationship between the predictors and the response.
+displacement, weight, year and origin have a statistically significant relationship to the response.
+With other variables fixed, on average, cars that are one year newer will have 0.75 times higher mpg. 
+
+d.
+```{r}
+par(mfrow=c(2,2))
+plot(fit)
+```
+
+The diagnostic plots suggest non-linearity and non-normality, with subject 14 having high leverage. 
+
+e.
+```{r}
+#use variables that are significant, choose 'year' as interaction term since it's like time
+fit1=lm(mpg~displacement+weight+year+origin, data=Auto)
+fit2=lm(mpg~displacement+weight+year*origin, data=Auto)
+fit3=lm(mpg~displacement+year*origin+year*weight, data=Auto)
+fit4=lm(mpg~year*displacement+year*origin+year*weight, data=Auto)
+anova(fit1,fit2,fit3,fit4)
+```
+
+Both year\*origin and year\*weight appear to add more explained variance to the model.
+
+f.
+```{r}
+#choose 'weight' for transformation since it's always significant in different models, also drop 'displacement'
+fit5=lm(mpg~I(log(weight))+year+origin, data=Auto)
+fit6=lm(mpg~I(sqrt(weight))+year+origin, data=Auto)
+fit7=lm(mpg~I(weight^2)+year+origin, data=Auto)
+summary(fit5)
+summary(fit6)
+summary(fit7)
+```
+
+In terms of adjusted $R^2$, a log transformation seems to be better.
+
+### 15
+a.
+```{r}
+library(MASS)
+data(Boston)
+df=Boston
+rsq=function(x){
+  r2=summary(x)$r.squared
+  return(r2)
+}
+lmp <- function (modelobject) {
+    if (class(modelobject) != "lm") stop("Not an object of class 'lm' ")
+    f <- summary(modelobject)$fstatistic
+    p <- pf(f[1],f[2],f[3],lower.tail=F)
+    attributes(p) <- NULL
+    return(p)
+}
+
+fmla=lapply(paste("crim", names(df)[-1], sep = "~"), formula)
+r2=sapply(fmla,function(x) rsq(lm(x,data=df)))
+pvl=sapply(fmla, function(x) lmp(lm(x,data=df)))
+which(pvl>0.05)
+plot(r2, xaxt='n',xlab = 'variables')
+axis(1, at=1:13, labels = names(df)[-1], cex.axis = 0.6)
+
+```
+
+The variable chas is not significant.
+
+b.
+```{r}
+fit <- lm(crim~., data=df)
+summary(fit)
+```
+
+For zn, dis, rad, black and medv can we reject the null.
+
+c.
+```{r}
+scoef=sapply(fmla,function(x) coef(lm(x,data=df))[2])
+mcoef=coef(fit)[-1]
+plot(scoef,mcoef)
+abline(a=0,b=1)
+```
+
+The estimates for nox is very different from simple lm to multiple lm.
+
+d.
+```{r}
+summary(lm(crim~poly(zn,3), data=Boston))     
+summary(lm(crim~poly(indus,3), data=Boston))   
+summary(lm(crim~poly(nox,3), data=Boston))     
+summary(lm(crim~poly(rm,3), data=Boston))      
+summary(lm(crim~poly(age,3), data=Boston))     
+summary(lm(crim~poly(dis,3), data=Boston))     
+summary(lm(crim~poly(rad,3), data=Boston))     
+summary(lm(crim~poly(tax,3), data=Boston))     
+summary(lm(crim~poly(ptratio,3), data=Boston)) 
+summary(lm(crim~poly(black,3), data=Boston))   # only variable that has neither significant quadratic nor cubic term
+summary(lm(crim~poly(lstat,3), data=Boston))   
+summary(lm(crim~poly(medv,3), data=Boston)) 
+```
+
+## ISLR Chapter 4 {.tabset}
+### 13
+```{r}
+library(caret)
+library(tidyverse)
+set.seed(621)
+df$crimcat=ifelse(df$crim > median(df$crim), 1, 0)
+dfsplt=createDataPartition(df$crimcat,p=0.7,list = F)
+trn=df[dfsplt,]
+tst=df[-dfsplt,]
+#for logistic regression, choose variables that have high r-squared
+fitlog=glm(crimcat~indus+nox+rad+tax+lstat+medv, data=trn, family=binomial)
+step(fitlog)
+fitlog1=glm(formula = crimcat ~ nox + rad + tax + lstat + medv, family = binomial, data = trn)
+logpred=ifelse(predict(fitlog1, tst, type="response")>0.5,1,0)
+mean(logpred != tst$crimcat)
+
+#LDA
+library(MASS)
+fitlda=lda(crimcat ~ nox + rad + tax + lstat + medv, data=trn)
+ldapred=predict(fitlda, tst)$class
+mean(ldapred != tst$crimcat)
+
+#QDA
+fitqda=qda(crimcat ~ nox + rad + tax + lstat + medv, data=trn)
+qdapred=predict(fitqda, tst)$class
+mean(qdapred != tst$crimcat)
+
+#KNN
+library(DMwR)
+knnpred=c()
+kk=c(1,5,10,20)
+for (i in 1:4)
+{
+  knnpred[i]=mean(kNN(crimcat ~ nox + rad + tax + lstat + medv, trn,tst,k=kk[i]) != tst$crimcat)
+}
+knnpred
+```
+
+KNN with k=1 gives best prediction in terms of error rate, which is 0.07.
+
+
+## TITANIC Dataset {.tabset}
+My final model is a random forest with formula: Survived ~ Pclass + Sex + SibSp + Parch + Fare, the predicted result is in a separate csv file.
+The problem with using random forest is that I had to impute the missing values, for Age and Embarked. The latter did not end up in the model though.
+I generally don't like to impute, but since I have already used other methods for the homework problem, I thought I'd just try something different. A lot of people online didn't use random forest I guess due to the fact that imputation is controversial. And some people spent large proportion of their work to perform exploretary data analysis, which is what I've been impatient about. But as far as my experience with large datasets goes, I started to realize how important the preliminary work would be.  
